@@ -1,0 +1,79 @@
+package com.friends;
+
+import java.io.IOException;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
+
+public class FoFMapper1 extends Mapper<Object, Text, Text, Text> {
+    private Text user = new Text();
+    private Text friend = new Text();
+
+    public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+        String[] parts = value.toString().split(",");
+        user.set(parts[0]);
+        friend.set(parts[1]);
+        context.write(user, friend); // Emit user -> friend
+        context.write(friend, user); // Emit friend -> user (bidirectional)
+    }
+}
+==================================================================================================================================================
+package com.friends;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Reducer;
+
+public class FoFReducer1 extends Reducer<Text, Text, Text, Text> {
+    private Text pair = new Text();
+    private Text commonFriend = new Text();
+
+    public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+        List<String> friends = new ArrayList<>();
+        for (Text value : values) {
+            friends.add(value.toString());
+        }
+        // Emit all pairs of friends with the current user as a common friend
+        for (int i = 0; i < friends.size(); i++) {
+            for (int j = i + 1; j < friends.size(); j++) {
+                String friend1 = friends.get(i);
+                String friend2 = friends.get(j);
+                pair.set(friend1 + "," + friend2);
+                commonFriend.set(key.toString());
+                context.write(pair, commonFriend);
+            }
+        }
+    }
+}
+=======================================================================================================================================
+package com.friends;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+
+public class FoFDriver {
+    public static void main(String[] args) throws Exception {
+        if (args.length < 2) {
+            System.err.println("Usage: FoFDriver <input path> <output path>");
+            System.exit(-1);
+        }
+
+        // Job: Calculate Common Friends
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "FoF Job");
+        job.setJarByClass(FoFDriver.class);
+        job.setMapperClass(FoFMapper1.class);
+        job.setReducerClass(FoFReducer1.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(Text.class);
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
