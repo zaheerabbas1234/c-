@@ -26,3 +26,9 @@ A	B,1;C,1
 B	A,1;C,1;D,1
 C	A,1;B,1;D,1
 D	B,1;C,1
+
+--------------------
+Implement Friends-of-friends algorithm in MapReduce. 
+Hint: Two MapReduce jobs are required to calculate the FoFs for each user in a social network .The 
+first job calculates the common friends for each user, and the second job sorts the common friends 
+by the number of connections to your friends.
